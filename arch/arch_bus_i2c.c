@@ -53,4 +53,3 @@ int arch_i2c_set_callback(uint8_t id, arch_i2c_cb_t cb, uintptr_t ctx)
     return arch_i2c_impl_set_callback(id, cb, ctx);
 }
 
-// test branch
