@@ -2,10 +2,12 @@
  * @file mount.h
  * @author Santiago Marino
  * @year 2026
- * @brief Gestione della tabella dei mount per storage multipli.
+ * @brief Mount table management for multiple storage devices.
  * 
- * Permette di associare un nome logico di dispositivo (es. "ram0")
- * a un dispositivo storage e al filesystem montato su di esso.
+ * This file defines the mount table, which associates a logical device
+ * name (e.g., "ram0") with a storage device and the filesystem mounted
+ * on it. It allows the kernel to support multiple storage devices and
+ * filesystem types.
  */
 
 #ifndef MOUNT_H
@@ -14,48 +16,45 @@
 #include "kernel/fs/fs.h"
 #include "drivers/storage/storage.h"
 
-#define MAX_MOUNTS 4        /**< Numero massimo di mount point */
-#define MOUNT_NAME_LEN 16   /**< Lunghezza massima del nome del dispositivo */
+#define MAX_MOUNTS 4        /**< Maximum number of mount points */
+#define MOUNT_NAME_LEN 16   /**< Maximum length of a logical device name */
 
 /**
  * @struct mount_entry_t
- * @brief Singola entry nella tabella dei mount.
+ * @brief Single entry in the mount table.
  */
 typedef struct {
-    char dev_name[MOUNT_NAME_LEN];   /**< Nome logico del dispositivo (es. "ram0") */
-    storage_dev_t *storage;          /**< Puntatore al dispositivo storage */
-    fs_t *fs;                        /**< Puntatore al filesystem montato */
+    char dev_name[MOUNT_NAME_LEN];   /**< Logical device name (e.g., "ram0") */
+    storage_dev_t *storage;          /**< Underlying storage device */
+    fs_t *fs;                        /**< Filesystem mounted on this device */
 } mount_entry_t;
 
 /**
- * @brief Inizializza la tabella dei mount (tutte le entry vuote).
+ * @brief Initialise the mount table (all entries empty).
  */
 void mount_init(void);
 
 /**
- * @brief Registra un nuovo mount point.
- * 
- * @param dev_name Nome logico del dispositivo
- * @param dev Puntatore al dispositivo storage
- * @param fs Puntatore al filesystem da montare
- * @return 0 se successo, -1 se tabella piena o parametri nulli
+ * @brief Register a new mount point.
+ * @param dev_name Logical device name.
+ * @param dev      Storage device.
+ * @param fs       Filesystem mounted on that device.
+ * @return 0 on success, -1 if the table is full or any parameter is NULL.
  */
 int mount_register(const char *dev_name, storage_dev_t *dev, fs_t *fs);
 
 /**
- * @brief Cerca un filesystem in base al nome del dispositivo.
- * 
- * @param dev_name Nome logico del dispositivo
- * @return Puntatore al filesystem, o NULL se non trovato
+ * @brief Retrieve the filesystem associated with a logical device name.
+ * @param dev_name Logical device name.
+ * @return Pointer to the filesystem, or NULL if not found.
  */
-fs_t* mount_get_fs(const char *dev_name);
+fs_t *mount_get_fs(const char *dev_name);
 
 /**
- * @brief Cerca un dispositivo storage in base al nome logico.
- * 
- * @param dev_name Nome logico del dispositivo
- * @return Puntatore al dispositivo storage, o NULL se non trovato
+ * @brief Retrieve the storage device associated with a logical device name.
+ * @param dev_name Logical device name.
+ * @return Pointer to the storage device, or NULL if not found.
  */
-storage_dev_t* mount_get_storage(const char *dev_name);
+storage_dev_t *mount_get_storage(const char *dev_name);
 
 #endif /* MOUNT_H */
