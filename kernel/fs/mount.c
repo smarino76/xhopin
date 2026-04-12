@@ -2,14 +2,14 @@
  * @file mount.c
  * @author Santiago Marino
  * @year 2026
- * @brief Implementazione della tabella dei mount.
+ * @brief Implementation of the mount table.
  */
 
 #include "kernel/fs/mount.h"
 #include <string.h>
 
-static mount_entry_t mounts[MAX_MOUNTS];  /**< Tabella statica dei mount */
-static int mount_count = 0;               /**< Numero di entry attive */
+static mount_entry_t mounts[MAX_MOUNTS];  /**< Static mount table */
+static int mount_count = 0;               /**< Number of active entries */
 
 void mount_init(void) {
     mount_count = 0;
@@ -30,7 +30,7 @@ int mount_register(const char *dev_name, storage_dev_t *dev, fs_t *fs) {
     return 0;
 }
 
-fs_t* mount_get_fs(const char *dev_name) {
+fs_t *mount_get_fs(const char *dev_name) {
     for (int i = 0; i < mount_count; i++) {
         if (strcmp(mounts[i].dev_name, dev_name) == 0) {
             return mounts[i].fs;
@@ -39,7 +39,7 @@ fs_t* mount_get_fs(const char *dev_name) {
     return NULL;
 }
 
-storage_dev_t* mount_get_storage(const char *dev_name) {
+storage_dev_t *mount_get_storage(const char *dev_name) {
     for (int i = 0; i < mount_count; i++) {
         if (strcmp(mounts[i].dev_name, dev_name) == 0) {
             return mounts[i].storage;
