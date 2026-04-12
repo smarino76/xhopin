@@ -115,6 +115,3 @@ Author: Santiago Marino
 Year: 2026
 GitHub: smarino76/xhopin
 
-
-
-## Struttura del repository
