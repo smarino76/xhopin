@@ -10,7 +10,8 @@
  * MODIFICHE RISPETTO ALLA VERSIONE PRECEDENTE:
  * - Implementate le funzioni `vm_ref_inc`, `vm_ref_dec`.
  * - `vm_destroy` ora verifica `ref_count` prima di liberare la memoria.
- * - `vm_create` inizializza `ref_count = 1`.
+ * - `vm_create` inizializza `ref_count = 1` e lo stack pointer (sp) alla fine della RAM.
+ * - `OP_LOAD` e `OP_STORE` ora usano l'offset immediato (imm) invece del registro rt.
  */
 
 #include "vm_core.h"
@@ -26,35 +27,39 @@ extern uint32_t kernel_intent_dispatcher(VMContext *vm);
  * -------------------------------------------------------------------------- */
 VMContext* vm_create(AppHeader *header, uint8_t *code_ptr) {
     /* Alloca la struttura VMContext */
-    VMContext *vm = (VMContext *)mem_alloc(sizeof(VMContext));
+    VMContext *vm = (VMContext *) mem_alloc(sizeof (VMContext));
     if (!vm) return NULL;
 
     /* Azzera l'intera struttura */
-    memset(vm, 0, sizeof(VMContext));
+    memset(vm, 0, sizeof (VMContext));
 
     /* Copia il nome dell'app (massimo 15 caratteri + terminatore) */
-    strncpy(vm->name, header->name, sizeof(vm->name) - 1);
-    vm->name[sizeof(vm->name) - 1] = '\0';
+    strncpy(vm->name, header->name, sizeof (vm->name) - 1);
+    vm->name[sizeof (vm->name) - 1] = '\0';
 
     /* Inizializza i campi base */
     vm->code_buffer = code_ptr;
-    vm->code_size   = header->code_size;
+    vm->code_size = header->code_size;
     vm->capabilities = header->capabilities;
-    vm->pc          = header->entry_point;
-    vm->state       = VM_STATE_READY;
-    vm->ref_count   = 1;   /* Il task che esegue la VM tiene un riferimento */
+    vm->pc = header->entry_point;
+    vm->state = VM_STATE_READY;
+    vm->ref_count = 1; /* Il task che esegue la VM tiene un riferimento */
 
     /* Allinea la RAM a 4 byte per evitare eccezioni di allineamento su MIPS */
     uint32_t aligned_ram = (header->ram_size + 3) & ~3;
     vm->ram_size = aligned_ram;
     if (aligned_ram > 0) {
-        vm->ram_buffer = (uint8_t *)mem_alloc(aligned_ram);
+        vm->ram_buffer = (uint8_t *) mem_alloc(aligned_ram);
         if (!vm->ram_buffer) {
             mem_free(vm);
             return NULL;
         }
         memset(vm->ram_buffer, 0, aligned_ram);
     }
+
+    /* Inizializza lo stack pointer alla fine della RAM */
+    vm->regs.named.sp = aligned_ram - 4;
+
     return vm;
 }
 
@@ -93,7 +98,7 @@ void vm_destroy(VMContext *vm) {
     if (!vm) return;
     /* Se ci sono ancora riferimenti attivi, non distruggere, ma marcare come HALTED */
     if (vm->ref_count > 0) {
-        vm->state = VM_STATE_HALTED;  /* In attesa che i riferimenti vengano rilasciati */
+        vm->state = VM_STATE_HALTED; /* In attesa che i riferimenti vengano rilasciati */
         return;
     }
     /* Distruzione effettiva */
@@ -115,74 +120,93 @@ void vm_step(VMContext *vm) {
     }
 
     /* FETCH: carica l'istruzione a 32 bit (big-endian) */
-    uint32_t instr = *(uint32_t *)(vm->code_buffer + vm->pc);
-    uint8_t opcode = (instr >> 24) & 0xFF;   /* Primo byte = opcode */
-    uint8_t rd     = (instr >> 16) & 0xFF;   /* Secondo byte = registro destinazione */
-    uint8_t rs     = (instr >> 8)  & 0xFF;   /* Terzo byte = primo operando */
-    uint8_t rt     = instr         & 0xFF;   /* Quarto byte = secondo operando o immediate */
-    int16_t imm    = (int16_t)(instr & 0xFFFF); /* Immediate a 16 bit con segno */
+    uint32_t instr = *(uint32_t *) (vm->code_buffer + vm->pc);
+    uint8_t opcode = (instr >> 24) & 0xFF; /* Primo byte = opcode */
+    uint8_t rd = (instr >> 16) & 0xFF; /* Secondo byte = registro destinazione */
+    uint8_t rs = (instr >> 8) & 0xFF; /* Terzo byte = primo operando */
+    uint8_t rt = instr & 0xFF; /* Quarto byte = secondo operando o immediate */
+    int16_t imm = (int16_t) (instr & 0xFFFF); /* Immediate a 16 bit con segno */
 
-    int pc_jumped = 0;  /* Flag: true se l'istruzione modifica il PC (salto) */
+    int pc_jumped = 0; /* Flag: true se l'istruzione modifica il PC (salto) */
 
     /* DECODE-EXECUTE */
     switch (opcode) {
-        /* ===== Aritmetica ===== */
-        case OP_ADD:  vm->regs.gp[rd] = vm->regs.gp[rs] + vm->regs.gp[rt]; break;
-        case OP_SUB:  vm->regs.gp[rd] = vm->regs.gp[rs] - vm->regs.gp[rt]; break;
-        case OP_ADDI: vm->regs.gp[rd] = vm->regs.gp[rs] + imm; break;
+            /* ===== Aritmetica ===== */
+        case OP_ADD: vm->regs.gp[rd] = vm->regs.gp[rs] + vm->regs.gp[rt];
+            break;
+        case OP_SUB: vm->regs.gp[rd] = vm->regs.gp[rs] - vm->regs.gp[rt];
+            break;
+        case OP_ADDI:
+        {
+            int8_t imm8 = (int8_t) rt; /* imm a 8 bit con segno */
+            vm->regs.gp[rd] = vm->regs.gp[rs] + imm8;
+            break;
+        }
 
-        /* ===== Logiche ===== */
-        case OP_AND:  vm->regs.gp[rd] = vm->regs.gp[rs] & vm->regs.gp[rt]; break;
-        case OP_OR:   vm->regs.gp[rd] = vm->regs.gp[rs] | vm->regs.gp[rt]; break;
-        case OP_MOV:  vm->regs.gp[rd] = vm->regs.gp[rs]; break;
-        case OP_LUI:  vm->regs.gp[rd] = (uint32_t)imm << 16; break;
-        case OP_XOR:  vm->regs.gp[rd] = vm->regs.gp[rs] ^ vm->regs.gp[rt]; break;
-        case OP_NOR:  vm->regs.gp[rd] = ~(vm->regs.gp[rs] | vm->regs.gp[rt]); break;
+            /* ===== Logiche ===== */
+        case OP_AND: vm->regs.gp[rd] = vm->regs.gp[rs] & vm->regs.gp[rt];
+            break;
+        case OP_OR: vm->regs.gp[rd] = vm->regs.gp[rs] | vm->regs.gp[rt];
+            break;
+        case OP_MOV: vm->regs.gp[rd] = vm->regs.gp[rs];
+            break;
+        case OP_LUI: vm->regs.gp[rd] = (uint32_t) imm << 16;
+            break;
+        case OP_XOR: vm->regs.gp[rd] = vm->regs.gp[rs] ^ vm->regs.gp[rt];
+            break;
+        case OP_NOR: vm->regs.gp[rd] = ~(vm->regs.gp[rs] | vm->regs.gp[rt]);
+            break;
 
-        /* ===== Shift ===== */
-        case OP_SLL: {
-            uint8_t shamt = instr & 0x1F;   /* shift amount nei bit 4..0 */
+            /* ===== Shift ===== */
+        case OP_SLL:
+        {
+            uint8_t shamt = instr & 0x1F; /* shift amount nei bit 4..0 */
             vm->regs.gp[rd] = vm->regs.gp[rt] << shamt;
             break;
         }
-        case OP_SRL: {
+        case OP_SRL:
+        {
             uint8_t shamt = instr & 0x1F;
             vm->regs.gp[rd] = vm->regs.gp[rt] >> shamt;
             break;
         }
-        case OP_SRA: {
+        case OP_SRA:
+        {
             uint8_t shamt = instr & 0x1F;
-            int32_t val = (int32_t)vm->regs.gp[rt];
+            int32_t val = (int32_t) vm->regs.gp[rt];
             vm->regs.gp[rd] = val >> shamt;
             break;
         }
 
-        /* ===== Memoria word (allineata) ===== */
-        case OP_LOAD: {
-            uint32_t addr = vm->regs.gp[rs] + vm->regs.gp[rt];
-            /* Controllo allineamento a 4 byte e limiti */
+            /* ===== Memoria word (allineata) - CON OFFSET IMMEDIATO ===== */
+        case OP_LOAD:
+        {
+            uint32_t addr = vm->regs.gp[rs] + imm;
             if ((addr & 3) == 0 && (addr + 4 <= vm->ram_size))
-                vm->regs.gp[rd] = *(uint32_t*)(vm->ram_buffer + addr);
-            else vm->state = VM_STATE_ERROR;  /* Sandbox violato */
+                vm->regs.gp[rd] = *(uint32_t*) (vm->ram_buffer + addr);
+            else vm->state = VM_STATE_ERROR;
             break;
         }
-        case OP_STORE: {
-            uint32_t addr = vm->regs.gp[rd] + vm->regs.gp[rs];
+        case OP_STORE:
+        {
+            uint32_t addr = vm->regs.gp[rs] + imm;
             if ((addr & 3) == 0 && (addr + 4 <= vm->ram_size))
-                *(uint32_t*)(vm->ram_buffer + addr) = vm->regs.gp[rt];
+                *(uint32_t*) (vm->ram_buffer + addr) = vm->regs.gp[rd];
             else vm->state = VM_STATE_ERROR;
             break;
         }
 
-        /* ===== Memoria byte (non allineata) ===== */
-        case OP_LOADB: {
+            /* ===== Memoria byte (non allineata) ===== */
+        case OP_LOADB:
+        {
             uint32_t addr = vm->regs.gp[rs] + vm->regs.gp[rt];
             if (addr < vm->ram_size)
-                vm->regs.gp[rd] = vm->ram_buffer[addr];  /* zero-extended */
+                vm->regs.gp[rd] = vm->ram_buffer[addr];
             else vm->state = VM_STATE_ERROR;
             break;
         }
-        case OP_STOREB: {
+        case OP_STOREB:
+        {
             uint32_t addr = vm->regs.gp[rd] + vm->regs.gp[rs];
             if (addr < vm->ram_size)
                 vm->ram_buffer[addr] = vm->regs.gp[rt] & 0xFF;
@@ -190,13 +214,13 @@ void vm_step(VMContext *vm) {
             break;
         }
 
-        /* ===== Confronti e salti ===== */
+            /* ===== Confronti e salti ===== */
         case OP_SLT:
             vm->regs.gp[rd] = (vm->regs.gp[rs] < vm->regs.gp[rt]) ? 1 : 0;
             break;
         case OP_BEQ:
             if (vm->regs.gp[rd] == vm->regs.gp[rs]) {
-                vm->pc += (imm << 2);  /* l'immediato è in numero di istruzioni, non byte */
+                vm->pc += (imm << 2);
                 pc_jumped = 1;
             }
             break;
@@ -207,11 +231,11 @@ void vm_step(VMContext *vm) {
             }
             break;
         case OP_JMP:
-            vm->pc = (instr & 0x00FFFFFF);  /* target a 24 bit */
+            vm->pc = (instr & 0x00FFFFFF);
             pc_jumped = 1;
             break;
         case OP_CALL:
-            vm->regs.named.ra = vm->pc + 4;  /* salva ritorno */
+            vm->regs.named.ra = vm->pc + 4;
             vm->pc = (instr & 0x00FFFFFF);
             pc_jumped = 1;
             break;
@@ -220,12 +244,12 @@ void vm_step(VMContext *vm) {
             pc_jumped = 1;
             break;
 
-        /* ===== Chiamata al kernel ===== */
+            /* ===== Chiamata al kernel ===== */
         case OP_VCALL:
             vm->regs.named.k0 = kernel_intent_dispatcher(vm);
             break;
 
-        /* ===== Terminazione ===== */
+            /* ===== Terminazione ===== */
         case OP_HALT:
             vm->state = VM_STATE_HALTED;
             return;
@@ -239,7 +263,7 @@ void vm_step(VMContext *vm) {
     if (!pc_jumped && vm->state == VM_STATE_RUNNING)
         vm->pc += 4;
 
-    /* Mantiene il registro zero sempre a 0 (sicurezza) */
+    /* Mantiene il registro zero sempre a 0 */
     vm->regs.named.zero = 0;
 }
 
