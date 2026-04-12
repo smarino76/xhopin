@@ -34,7 +34,6 @@ int reg_to_num(const char *name) {
 
 uint32_t resolve_value(const char *s) {
     char clean[64]; int j = 0;
-    // Estrae contenuto di hi() o lo()
     if (strstr(s, "(")) {
         const char *start = strchr(s, '(') + 1;
         const char *end = strchr(s, ')');
@@ -61,7 +60,6 @@ void assemble_line(char *line, uint32_t pc) {
     uint8_t opcode = 0, rd = 0, rs = 0, rt = 0;
     int16_t imm = 0;
 
-    // Sincronizzato con opcodes.h e vm_core.c
     if (strcmp(op, "ADD") == 0)  { opcode = 0x01; rd = reg_to_num(a1); rs = reg_to_num(a2); rt = reg_to_num(a3); }
     else if (strcmp(op, "SUB") == 0)  { opcode = 0x02; rd = reg_to_num(a1); rs = reg_to_num(a2); rt = reg_to_num(a3); }
     else if (strcmp(op, "ADDI") == 0) { 
@@ -76,10 +74,9 @@ void assemble_line(char *line, uint32_t pc) {
         imm = (int16_t)(val >> 16);
     }
     else if (strcmp(op, "MOV") == 0) { opcode = 0x12; rd = reg_to_num(a1); rs = reg_to_num(a2); }
-    else if (strcmp(op, "LOAD") == 0 || strcmp(op, "STORE") == 0) {
-        opcode = (op[0] == 'L') ? 0x20 : 0x21;
+    else if (strcmp(op, "LOAD") == 0) {
+        opcode = 0x20;
         rd = reg_to_num(a1);
-        // Gestisce sia "LOAD r1, r2, 4" che "LOAD r1, 4(r2)"
         if (strchr(a2, '(')) {
             char *p = strchr(a2, '(');
             imm = atoi(a2);
@@ -89,8 +86,16 @@ void assemble_line(char *line, uint32_t pc) {
             imm = (int16_t)resolve_value(a3);
         }
     }
+    else if (strcmp(op, "STORE") == 0) {
+        opcode = 0x21;
+        // FIX: La VM usa rd come valore da scrivere.
+        // Assembly: STORE sp, zero, ra -> ra è la sorgente (rd), sp è la base (rs)
+        rd = reg_to_num(a3); 
+        rs = reg_to_num(a1); 
+        imm = (int16_t)resolve_value(a2);
+    }
     else if (strcmp(op, "LOADB") == 0)  { opcode = 0x22; rd = reg_to_num(a1); rs = reg_to_num(a2); imm = resolve_value(a3); }
-    else if (strcmp(op, "STOREB") == 0) { opcode = 0x23; rd = reg_to_num(a1); rs = reg_to_num(a2); imm = resolve_value(a3); }
+    else if (strcmp(op, "STOREB") == 0) { opcode = 0x23; rd = reg_to_num(a3); rs = reg_to_num(a1); imm = resolve_value(a2); }
     else if (strcmp(op, "BEQ") == 0 || strcmp(op, "BNE") == 0) {
         opcode = (op[1] == 'E') ? 0x30 : 0x31;
         rd = reg_to_num(a1); rs = reg_to_num(a2);
@@ -102,7 +107,6 @@ void assemble_line(char *line, uint32_t pc) {
     else if (strcmp(op, "VCALL") == 0) { instr = 0x50000000; goto emit; }
     else if (strcmp(op, "HALT") == 0)  { instr = 0xFF000000; goto emit; }
 
-    // Formato standard: [OP:8][RD:8][RS:8][IMM/RT:16]
     instr = (opcode << 24) | (rd << 16) | (rs << 8) | (rt & 0xFF);
     if (opcode == 0x03 || opcode == 0x13 || opcode >= 0x20) {
         instr = (opcode << 24) | (rd << 16) | (rs << 8) | (uint16_t)imm;
@@ -164,6 +168,6 @@ int main(int argc, char **argv) {
     fwrite(code, 1, code_len, out);
 
     fclose(f); fclose(out);
-    printf("Successo! %d byte scritti.\n", code_len);
+    printf("Successo! %d byte di codice generati.\n", code_len);
     return 0;
 }
