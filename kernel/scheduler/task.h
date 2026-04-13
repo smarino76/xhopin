@@ -15,6 +15,7 @@
 #ifndef TASK_H
 #define TASK_H
 
+#include "../../arch/mips/impl/pic32mx_cpu.h"
 #include "arch/include/arch_cpu.h"
 #include <stdint.h>
 
