@@ -14,8 +14,6 @@
 
 #ifndef TASK_H
 #define TASK_H
-
-#include "../../arch/mips/impl/pic32mx_cpu.h"
 #include "arch/include/arch_cpu.h"
 #include <stdint.h>
 
@@ -31,8 +29,9 @@ extern uint8_t kernel_stack[];
  * una funzione di ingresso, un argomento, un ID univoco, un puntatore
  * a dati privati (es. VMContext) e un puntatore per la lista circolare.
  */
+
 typedef struct Task {
-    CpuContext context;      /**< Contesto CPU salvato (registri) */
+    CpuContext  *context;      /**< Contesto CPU salvato (registri) */
     void *stack;             /**< Base dello stack (indirizzo basso) */
     uint32_t stack_size;     /**< Dimensione dello stack in byte */
     void (*entry)(void *);   /**< Funzione di ingresso del task */
@@ -40,6 +39,10 @@ typedef struct Task {
     uint32_t id;             /**< Identificatore univoco del task */
     void *priv_data;         /**< Dati privati (es. VMContext) per associazione */
     struct Task *next;       /**< Puntatore al prossimo task nella lista circolare */
+    
+        /* CPU usage tracking */
+    uint64_t total_cycles;      // cicli totali eseguiti da questo task
+    uint32_t last_count;        // ultimo valore del Counter letto
 } Task;
 
 /**
@@ -94,5 +97,12 @@ int task_destroy_by_id(uint32_t id);
  * quindi task_yield() non fa nulla. Mantenuta per compatibilità.
  */
 void task_yield(void);
+
+
+
+uint64_t task_get_cycles(uint32_t id);
+
+
+uint64_t task_get_system_cycles(void);
 
 #endif /* TASK_H */

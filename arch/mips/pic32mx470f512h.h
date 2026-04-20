@@ -1,3 +1,27 @@
+#include "impl/pic32mx_cpu.h"
+#include "impl/pic32mx_systick.h"
+
+#ifndef PIC32MX470F512H_H
+#define PIC32MX470F512H_H
+
+/* ============================================================================
+ * CPU frequency - MUST match your board's actual clock speed
+ * ============================================================================
+ * PIC32MX470F512H typical configurations:
+ *   - 80 MHz: 8MHz external crystal + PLL (default)
+ *   - 48 MHz: USB ready
+ *   - 72 MHz: Common alternative
+ * 
+ * Change this according to your hardware configuration.
+ * ============================================================================
+ */
+#ifndef CPU_HZ
+#define CPU_HZ 80000000UL   /* 80 MHz - change if your board is different */
+#endif
+
+
+
+
 #define MEM_RAM_SIZE    131072
 #define ARCH_RAMDISK_BLOCK_SIZE      32
 #define ARCH_RAMDISK_BLOCK_COUNT     1024
@@ -80,3 +104,6 @@
 #define HAS_I2C(mask)  ((ACTIVE_I2C_MASK & (mask)) != 0)
 #define HAS_CORE_TIMER(mask) ((ACTIVE_CORE_TIMER_MASK & (mask)) != 0)
 #define HAS_UART(mask) ((ACTIVE_UART_MASK & (mask)) != 0)
+
+
+#endif

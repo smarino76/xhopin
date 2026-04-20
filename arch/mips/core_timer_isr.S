@@ -11,19 +11,23 @@
 
 .global core_timer_isr
 .ent core_timer_isr
+
 core_timer_isr:
     /* 1. Puntiamo al TCB (Task Control Block) usando k0 */
     la      $k0, current_task
-    lw      $k0, 0($k0)          # k0 = indirizzo CpuContext del task corrente
+    lw	    $k0, 0($k0)		    # $k0 = current_task (Task*)
+#    lw      $k0, 0($k0)		    # $k0 = current_task->context (CpuContext*)
     
     # Se il puntatore è NULL (avvio sistema), saltiamo il salvataggio
     beqz    $k0, setup_kernel_stack
     nop
     nop
     nop
-    
 
     /* 2. SALVATAGGIO CONTESTO (32 registri + Speciali) */
+   # la      $k0, current_task	    # se siamo arrivati qui è perche current_task
+   # lw	    $k0, 0($k0)		    # $k0 = current_task (Task*)
+    lw      $k0, 0($k0)		    # $k0 = current_task->context (CpuContext*)
     sw      $ra,  0($k0)
     sw      $sp,  4($k0)         # SP originale del task
     sw      $gp,  8($k0)
@@ -62,27 +66,15 @@ core_timer_isr:
     nop
     nop
     nop
-    
     sw      $k1, 128($k0)
 
     # Status: salviamo ESATTAMENTE lo stato corrente (incluso EXL=1)
-    # NON dobbiamo modificarlo: eret si occuperà di ripristinare lo stato corretto
-
     mfc0    $k1, $12
     ehb
     nop
     nop
     nop
-    
     sw      $k1, 60($k0)
-    
-
-//    # Status: salviamo lo stato pulendo i bit di eccezione
-//    mfc0    $k1, $12
-//    li      $t0, STATUS_CLEAR_MASK
-//    and     $k1, $k1, $t0
-//    ori     $k1, $k1, 0x1        # Forza IE=1 per il rientro
-//    sw      $k1, 60($k0)
 
     # EPC: Indirizzo di rientro del task
     mfc0    $k1, $14
@@ -90,7 +82,6 @@ core_timer_isr:
     nop
     nop
     nop
-    
     sw      $k1, 64($k0)
 
 setup_kernel_stack:
@@ -98,23 +89,34 @@ setup_kernel_stack:
     la      $k1, kernel_stack
     addiu   $sp, $k1, KERNEL_STACK_SIZE - 16
 
-    /* 4. Reset del flag interrupt (Metodo Atomico) */
-    # Scriviamo 1 (maschera bit 0) nel registro CLR (0x1034)
+    /* 4. Pulisci il flag interrupt (IFS0CLR) */
     li      $k1, (1 << CTIF_BIT)
     la      $k0, IFS0CLR
-    sw      $k1, 0($k0)          
+    sw      $k1, 0($k0)
 
-    /* 5. Chiamata allo Scheduler C */
+    /* 5. NUOVO: Incrementa Compare invece di resettare Count
+     *    Chiama arch_systick_get_instance() per ottenere il puntatore
+     *    Poi chiama arch_systick_tick() per incrementare Compare
+     *    Questa è la chiave per la misurazione del CPU usage
+     */
+    jal     arch_systick_get_instance
+    nop
+    move    $a0, $v0              # $a0 = puntatore a ArchSysTick
+    jal     arch_systick_tick
+    nop
+
+    /* 6. Chiamata allo Scheduler C (timer_callback) */
     jal     timer_callback
     ehb
     nop
     nop
     nop
 
-    /* 6. Salto al ripristino (Tail-Call) */
-    la      $a0, current_task
-    lw      $a0, 0($a0)          # Carica il TCB scelto
-    
-    j       cpu_context_restore  
-    nop
+//    /* 7. Salto al ripristino (Tail-Call) */
+//    la      $a0, current_task
+//    lw      $a0, 0($a0)          # Carica il TCB scelto
+//lw      $a0, 0($a0)          # $a0 = current_task->context (CpuContext*)    
+//    j       cpu_context_restore  
+//    nop
+
 .end core_timer_isr
