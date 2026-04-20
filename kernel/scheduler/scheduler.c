@@ -14,8 +14,9 @@
  */
 
 #include "task.h"
-#include "arch/include/arch_cpu.h"
+#include "arch/arch.h"
 #include "arch/arch_core_timer.h"
+#include "arch/include/arch_systick.h"
 #include "kernel/context/task_exit.h"
 #include "kernel/memory/mem_alloc.h"
 #include "kernel/event/event.h"
@@ -24,8 +25,8 @@
 
 extern void cpu_idle(void);
 
-static Task *ready_list = (Task *)0x0;
-Task *current_task = (Task *)0x0;
+static Task *ready_list = (Task *) 0x0;
+Task *current_task = (Task *) 0x0;
 static uint32_t next_task_id = 1;
 uint8_t kernel_stack[KERNEL_STACK];
 
@@ -46,7 +47,7 @@ static void insert_task(Task *task) {
  * Crea un nuovo task
  * -------------------------------------------------------------------------- */
 Task* task_create(void (*entry)(void *), void *arg, uint32_t stack_size) {
-    Task *task = (Task*)mem_alloc(sizeof(Task));
+    Task *task = (Task*) mem_alloc(sizeof (Task));
     if (!task) return NULL;
 
     task->stack = mem_alloc(stack_size);
@@ -54,15 +55,28 @@ Task* task_create(void (*entry)(void *), void *arg, uint32_t stack_size) {
         mem_free(task);
         return NULL;
     }
+
+
+    // ALLOCA IL CONTESTO SEPARATAMENTE
+    task->context = (CpuContext*) mem_alloc(sizeof (CpuContext));
+    if (!task->context) {
+        mem_free(task->stack);
+        mem_free(task);
+        return NULL;
+    }
+
+
     task->stack_size = stack_size;
     task->entry = entry;
     task->arg = arg;
     task->id = next_task_id++;
     task->priv_data = NULL;
+    task->total_cycles = 0;
+    task->last_count = arch_systick_read(arch_systick_get_instance());
 
     /* Prepara lo stack e il contesto CPU */
-    void *stack_top = (uint8_t*)task->stack + stack_size;
-    cpu_context_init(&task->context, entry, arg, stack_top, task_exit_handler);
+    void *stack_top = (uint8_t*) task->stack + stack_size;
+    cpu_context_init(task->context, entry, arg, stack_top, task_exit_handler);
 
     insert_task(task);
     return task;
@@ -88,12 +102,17 @@ void task_destroy_current(void) {
     }
 
     /* Notifica l'evento di terminazione */
-    event_trigger(EVENT_TASK_TERMINATED, (void*)(uintptr_t)current_task->id);
+    event_trigger(EVENT_TASK_TERMINATED, (void*) (uintptr_t) current_task->id);
 
     /* Rilascia la VM (decrementa il contatore) e poi stack e task */
     if (current_task->priv_data) {
-        vm_ref_dec((VMContext*)current_task->priv_data);
+        vm_ref_dec((VMContext*) current_task->priv_data);
     }
+
+    if (current_task->context) {
+        mem_free(current_task->context);
+    }
+
     mem_free(current_task->stack);
     mem_free(current_task);
     current_task = NULL;
@@ -158,14 +177,17 @@ int task_destroy_by_id(uint32_t id) {
     int was_current = (current_task == target);
 
     /* Notifica evento di terminazione */
-    event_trigger(EVENT_TASK_TERMINATED, (void*)(uintptr_t)target->id);
+    event_trigger(EVENT_TASK_TERMINATED, (void*) (uintptr_t) target->id);
 
     /* Rilascia la VM (decrementa contatore) e poi stack e task */
     if (target->priv_data) {
-        vm_ref_dec((VMContext*)target->priv_data);
+        vm_ref_dec((VMContext*) target->priv_data);
     }
     if (target->stack) {
         mem_free(target->stack);
+    }
+    if (target->context) {
+        mem_free(target->context); 
     }
     mem_free(target);
 
@@ -186,6 +208,17 @@ static void switch_to_next(void) {
         cpu_irq_enable();
         return;
     }
+
+    ArchSysTick *systick = arch_systick_get_instance();
+    uint32_t now = arch_systick_read(systick);
+
+    /* Accumula cicli per il task che sta uscendo */
+    if (current_task != NULL) {
+        uint32_t delta = now - current_task->last_count;
+        current_task->total_cycles += delta;
+    }
+
+
     Task *next = ready_list->next;
     if (next == current_task) {
         cpu_irq_enable();
@@ -193,11 +226,16 @@ static void switch_to_next(void) {
     }
     ready_list = next;
     current_task = next;
+
+    /* Imposta last_count per il nuovo task */
+    current_task->last_count = arch_systick_read(systick);
+
+
     if (next == NULL) {
         cpu_irq_enable();
         return;
     }
-    cpu_context_restore(&current_task->context);
+    cpu_context_restore(current_task->context);
 }
 
 void task_yield(void) {
@@ -209,7 +247,7 @@ void timer_callback(uint32_t count, uintptr_t param) {
 }
 
 static void idle_task(void *arg) {
-    (void)arg;
+    (void) arg;
     while (1) {
         cpu_idle();
     }
@@ -218,12 +256,50 @@ static void idle_task(void *arg) {
 void scheduler_init(void) {
     Task *idle = task_create(idle_task, NULL, 1024);
     if (!idle) return;
-    if (ready_list == (Task *)0) {
+    if (ready_list == (Task *) 0) {
         ready_list = idle;
         idle->next = idle;
         current_task = idle;
     } else {
-        current_task = (Task *)0;
+        current_task = (Task *) 0;
     }
     arch_core_timer_enable_interrupt();
+}
+
+
+uint64_t task_get_cycles(uint32_t task_id) {
+    uint32_t flags = cpu_irq_save();
+    
+    /* Cerca il task nella lista */
+    Task *curr = ready_list;
+    if (curr) {
+        do {
+            if (curr->id == task_id) {
+                uint64_t cycles = curr->total_cycles;
+                cpu_irq_restore(flags);
+                return cycles;
+            }
+            curr = curr->next;
+        } while (curr != ready_list);
+    }
+    
+    cpu_irq_restore(flags);
+    return 0;
+}
+
+
+
+uint64_t task_get_system_cycles(void) {
+    static uint64_t system_cycles = 0;
+    static uint32_t last_system_count = 0;
+    
+    ArchSysTick *systick = arch_systick_get_instance();
+    uint32_t now = arch_systick_read(systick);
+    
+    if (last_system_count != 0) {
+        system_cycles += (now - last_system_count);
+    }
+    last_system_count = now;
+    
+    return system_cycles;
 }

@@ -76,7 +76,7 @@ cpu_context_restore:
     nop
     nop
     
-    mtc0    $zero, $9            # Reset Core Timer Count ($9)
+    //mtc0    $zero, $9            # Reset Core Timer Count ($9)
     ehb
     nop
     nop

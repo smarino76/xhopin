@@ -47,7 +47,8 @@ typedef enum {
     CAP_LOGGING = (1 << 1),   /**< Console (input/output testuale) */
     CAP_SENSORS = (1 << 2),   /**< Lettura sensori simulati */
     CAP_STORAGE = (1 << 3),   /**< Filesystem (create, read, write, delete) */
-    CAP_COMPILER = (1 << 4)   /**< Assemblatore residente (non ancora implementato) */
+    CAP_COMPILER = (1 << 4),   /**< Assemblatore residente (non ancora implementato) */
+    CAP_MONITOR  = (1 << 5)
 } IntentCategory;
 
 /**
@@ -65,7 +66,8 @@ typedef enum {
     ACTION_STORAGE_DELETE   = 7,  /**< Cancella un file */
     ACTION_STORAGE_LIST     = 8,  /**< Elenca file (stub) */
     ACTION_RECEIVE          = 9,  /**< Riceve dati dall'esterno (es. lettura console) */
-    ACTION_ASSEMBLE         = 10  /**< Assembla un file sorgente (non implementato) */
+    ACTION_ASSEMBLE         = 10,  /**< Assembla un file sorgente (non implementato) */
+    ACTION_GET_CPU_USAGE    = 11 
 } IntentAction;
 
 /**
