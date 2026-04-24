@@ -6,7 +6,7 @@
  */
 
 #include "../../include/arch_systick.h"
-#include "pic32mx_systick.h"
+#include "pic32_systick.h"
 #include <xc.h>
 #include <stdint.h>
 
