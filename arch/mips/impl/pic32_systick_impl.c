@@ -1,8 +1,8 @@
 /**
- * @file pic32mx_systick_impl.c
+ * @file pic32_systick_impl.c
  * @author Santiago Marino
  * @year 2026
- * @brief MIPS PIC32MX implementation of system tick timer.
+ * @brief MIPS PIC32 implementation of system tick timer.
  */
 
 #include "../../include/arch_systick.h"
