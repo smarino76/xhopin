@@ -2,6 +2,7 @@
 #define PIC32MX_CPU_H
 
 #include <stdint.h>
+#if defined(__32MX470F512H_HARMONY__)
 
 typedef struct CpuContext {
     uint32_t ra; //offset 0
@@ -39,6 +40,6 @@ typedef struct CpuContext {
     uint32_t lo; //offset 128
 } CpuContext;
 
-
+#endif
 
 #endif
