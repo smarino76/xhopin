@@ -31,7 +31,7 @@
 #define CORE_TIMER_HZ (CPU_HZ / 2)
 
 /**
- * @brief Concrete definition of ArchSysTick for MIPS PIC32MX.
+ * @brief Concrete definition of ArchSysTick for MIPS PIC32.
  */
 struct ArchSysTick {
     uint32_t counter;      /* Last read value from CP0 $9 */
@@ -41,4 +41,4 @@ struct ArchSysTick {
     int initialized;       /* Initialization flag */
 };
 
-#endif /* PIC32MX_SYSTICK_H */
+#endif /* PIC32_SYSTICK_H */
