@@ -12,7 +12,16 @@
 #define PIC32MX_SYSTICK_H
 
 #include <stdint.h>
+
+#if defined(__32MX470F512H__HARMONY__)
 #include "../pic32mx470f512h.h"
+#endif
+
+#if defined(__32MZ2048EFM144__HARMONY__)
+#include "../pic32mz2048efm144.h"
+#endif
+
+
 
 /* ============================================================================
  * Core Timer frequency (MIPS specific)
