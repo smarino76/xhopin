@@ -1,15 +1,15 @@
 /**
- * @file pic32mx_systick.h
+ * @file pic32_systick.h
  * @author Santiago Marino
  * @year 2026
- * @brief MIPS PIC32MX concrete definition for system tick timer.
+ * @brief MIPS PIC32 concrete definition for system tick timer.
  * 
  * Uses the Core Timer (CP0 registers $9 = Count, $11 = Compare).
  * Counter increments at CPU_HZ / 2.
  */
 
-#ifndef PIC32MX_SYSTICK_H
-#define PIC32MX_SYSTICK_H
+#ifndef PIC32_SYSTICK_H
+#define PIC32_SYSTICK_H
 
 #include <stdint.h>
 
