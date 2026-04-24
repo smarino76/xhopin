@@ -1,5 +1,5 @@
 #include "arch/arch.h"
-#include "pic32mx_cpu.h"
+#include "pic32_cpu.h"
 #include "arch/include/arch_cpu.h"
 #include <stddef.h>
 /* =====================================================================================

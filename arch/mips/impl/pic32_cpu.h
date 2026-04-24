@@ -1,6 +1,6 @@
 #ifndef PIC32_CPU_H
 #define PIC32_CPU_H
-
+#include "arch/arch.h"
 #include <stdint.h>
 
 #if defined(__32MZ2048EFM144_HARMONY__)

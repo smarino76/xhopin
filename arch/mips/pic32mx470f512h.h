@@ -1,5 +1,5 @@
-#include "impl/pic32mx_cpu.h"
-#include "impl/pic32mx_systick.h"
+#include "arch/mips/impl/pic32_cpu.h"
+#include "arch/mips/impl/pic32mx_systick.h"
 
 #ifndef PIC32MX470F512H_H
 #define PIC32MX470F512H_H
