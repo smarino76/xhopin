@@ -27,7 +27,7 @@
 //    sw   $s7, 40($t2)            # s7
 //
 //    # Salva i registri argomento (per il passaggio di parametri)
-//    sw   $a0, 44($t2)            # a0 (puntatore ctx, sar‡ sovrascritto al ripristino)
+//    sw   $a0, 44($t2)            # a0 (puntatore ctx, sar√† sovrascritto al ripristino)
 //    sw   $a1, 48($t2)            # a1
 //    sw   $a2, 52($t2)            # a2
 //    sw   $a3, 56($t2)            # a3
@@ -130,7 +130,7 @@ cpu_context_restore:
     lw      $t9, 120($k0)        # t9 (25)
 
     # 4. Ultimi due registri critici
-    # Carichiamo a0 per ultimo perchÈ k0 deriva da lui
+    # Carichiamo a0 per ultimo perch√© k0 deriva da lui
     lw      $a0, 44($k0)         # a0 (4) originale del task
     
     # Recuperiamo l'EPC da k1 per fare il salto finale
