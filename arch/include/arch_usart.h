@@ -1,8 +1,8 @@
 #ifndef ARCH_UART_H
 #define ARCH_UART_H
 
-#include "../arch.h"
-#include "../arch_bus.h"
+#include "arch/arch.h"
+#include "arch/arch_bus.h"
 
 /* Callback per UART */
 typedef void (*arch_uart_cb_t)(uintptr_t);

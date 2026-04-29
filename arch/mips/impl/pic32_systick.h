@@ -10,15 +10,15 @@
 
 #ifndef PIC32_SYSTICK_H
 #define PIC32_SYSTICK_H
-
+#include "arch/arch.h"
 #include <stdint.h>
 
 #if defined(__32MX470F512H__HARMONY__)
-#include "../pic32mx470f512h.h"
+#include "arch/mips/pic32mx470f512h.h"
 #endif
 
-#if defined(__32MZ2048EFM144__HARMONY__)
-#include "../pic32mz2048efm144.h"
+#if defined(__32MZ2048EFM144_HARMONY__)
+#include "arch/mips/pic32mz2048efm144.h"
 #endif
 
 

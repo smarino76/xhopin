@@ -1,7 +1,10 @@
+#include "arch/mips/impl/pic32_cpu.h"
+#include "arch/mips/impl/pic32_systick.h"
+
+
 #ifndef PIC32MZ2048EFM144_H
 #define PIC32MZ2048EFM144_H
 
-#include "arch/mips/impl/pic32_cpu.h"
 
 // Header file specifici per l'implementazione dell'MCU.
 // TODO: Creare questi file per il PIC32MZ e includerli.

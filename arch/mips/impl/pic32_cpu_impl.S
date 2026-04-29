@@ -1,52 +1,9 @@
+    .include "arch/mips/pic32config.inc"
+    
     .text
     .set noreorder
     .set nomacro
 
-/* ============================================================
- * cpu_context_save
- * Salva lo stato corrente della CPU nella struttura CpuContext
- * Input: $a0 = puntatore a CpuContext
- * Output: nessuno
- * ============================================================ */
-//    .global cpu_context_save
-//cpu_context_save:
-//    move $t2, $a0                # ctx ? t2 (salva il puntatore)
-//
-//    # Salva i registri callee-saved e speciali
-//   // sw   $ra,  0($t2)            # ra */ // $ra deve puntare a exit handler. a questo punto ra punta a switch_to_next sarebbe un errore salvarlo nel contesto?
-//    sw   $sp,  4($t2)            # sp
-//    sw   $gp,  8($t2)            # gp
-//
-//    sw   $s0, 12($t2)            # s0
-//    sw   $s1, 16($t2)            # s1
-//    sw   $s2, 20($t2)            # s2
-//    sw   $s3, 24($t2)            # s3
-//    sw   $s4, 28($t2)            # s4
-//    sw   $s5, 32($t2)            # s5
-//    sw   $s6, 36($t2)            # s6
-//    sw   $s7, 40($t2)            # s7
-//
-//    # Salva i registri argomento (per il passaggio di parametri)
-//    sw   $a0, 44($t2)            # a0 (puntatore ctx, sarà sovrascritto al ripristino)
-//    sw   $a1, 48($t2)            # a1
-//    sw   $a2, 52($t2)            # a2
-//    sw   $a3, 56($t2)            # a3
-//    
-//    # Legge il registro Status (CP0 $12) e lo pulisce
-//    mfc0 $t0, $12                # $t0 = Status corrente
-//    li   $t1, 0xFFFFF8F9         # maschera per azzerare EXL(bit1), ERL(bit2), IPL(bit10-8)
-//    and  $t0, $t0, $t1           # azzera i bit indesiderati
-//    ori  $t0, $t0, 0x1           # imposta IE (bit0) = 1 (interrupt abilitati)
-//    sw   $t0, 60($t2)            # salva Status pulito
-//
-//    # Salva EPC (CP0 $14)
-//    mfc0 $t0, $14                # $t0 = EPC
-//    sw   $t0, 64($t2)            # salva EPC
-//    sw	 $fp, 68($t2)		 # fp
-//    jr   $ra                     # ritorna al chiamante
-//    nop                          # branch delay slot
-
-    
 /* ============================================================
  * cpu_context_restore
  * Ripristina TUTTI i 32 registri e salta all'EPC.
@@ -140,6 +97,16 @@ cpu_context_restore:
     //jr      $k1                  # Jump all'indirizzo dove il task era sospeso
     sync
     ehb
+    
+    #ifdef PIC32 //Enable Core Timer DC
+    mfc0 $k0, $13, 0
+    ehb
+    la $k1, 0xF7FFFFFF
+    and $k0, $k0, $k1
+    mtc0 $k0, $13, 0
+    ehb
+    #endif
+    
     eret
     nop                          # Delay slot
     nop
@@ -215,10 +182,9 @@ cpu_irq_enable:
 cpu_irq_save:
     mfc0 $v0, $12          # legge Status
     di                     # disabilita interrupt
-    nop
-    nop
+    ehb
     jr   $ra
-    nop
+    ehb
 
 /* ============================================================
  * cpu_irq_restore
@@ -229,7 +195,6 @@ cpu_irq_save:
     .global cpu_irq_restore
 cpu_irq_restore:
     mtc0 $a0, $12          # scrive il vecchio Status
-    nop
-    nop
+    ehb
     jr   $ra
-    nop
+    ehb

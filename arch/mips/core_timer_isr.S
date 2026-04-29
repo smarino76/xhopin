@@ -1,10 +1,25 @@
+.include "arch/mips/pic32config.inc"
+    
+#ifdef PIC32MX
 # Definizione registro atomico CLEAR per IFS0 (PIC32MX470)
-# IFS0 = 0xBF881030 -> IFS0CLR = 0xBF881034
+# IFS0 = 0xBF881030 -> IFS0CLR = 0xBF881034    
 .equ IFS0CLR,            0xBF881034  
 .equ CTIF_BIT,           0           /* Bit 0 = Core Timer Interrupt Flag */
 .equ KERNEL_STACK_SIZE,  256         
 .equ STATUS_CLEAR_MASK,  0xFFFFF8F9  /* Maschera per pulire EXL, ERL e IPL */
+#endif
 
+#ifdef PIC32MZ
+# Definizione registro atomico CLEAR per IFS0 (PIC32MZ)
+# IFS0 = 0xBF881030 -> IFS0CLR = 0xBF881044    
+.equ IFS0CLR,            0xBF810044  
+.equ CTIF_BIT,           0           /* Bit 0 = Core Timer Interrupt Flag */
+.equ KERNEL_STACK_SIZE,  256         
+.equ STATUS_CLEAR_MASK,  0xFFFFF8F9  /* Maschera per pulire EXL, ERL e IPL */
+#endif
+
+    
+    
 .text
 .set noreorder
 .set noat
